@@ -1,0 +1,61 @@
+# --------------------
+# Go build artifacts
+# --------------------
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Build cache & logs
+*.log
+*.tmp
+*.swp
+*.swo
+*.pid
+
+# Go modules & cache
+vendor/
+*.mod
+*.sum
+*.lock
+
+# Coverage files
+coverage.out
+coverage.html
+
+# --------------------
+# Protobuf generated files
+# --------------------
+# Uncomment if you don't want to commit generated files
+# (best practice: ignore them, generate in CI/CD or local dev)
+proto/*.pb.go
+proto/*.pb.grpc.go
+
+# --------------------
+# Docker
+# --------------------
+.docker/
+docker-compose.override.yml
+
+# --------------------
+# IDE / Editor
+# --------------------
+.vscode/
+.idea/
+*.iml
+
+# --------------------
+# OS specific
+# --------------------
+.DS_Store
+Thumbs.db
+
+# --------------------
+# Environment files
+# --------------------
+.env
+*.env

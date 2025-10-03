@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package inventory;
+
+option go_package = "inventory_service/inventory:inventorypb";
+
+// Inventory Service 
+service InventoryService {
+  // Cek apakah stok produk tersedia
+  rpc CheckStock(CheckStockRequest) returns (CheckStockResponse) {}
+  // Reservasi stok untuk sebuah order (hold sementara)
+  rpc ReserveStock(ReserveStockRequest) returns (ReserveStockResponse) {}
+  // Lepaskan stok yang sudah di-reserve (rollback jika order gagal)
+  rpc ReleaseStock(ReleaseStockRequest) returns (ReleaseStockResponse) {}
+}
+
+// Message Definitions
+message CheckStockRequest {
+  string request_id = 1;     // correlation id untuk tracing/logging
+  string product_id = 2;     // UUID produk
+  int32 quantity = 3;        // qty yang diminta
+}
+
+message CheckStockResponse {
+  bool available = 1;        // true jika stok cukup
+  int32 available_qty = 2;   // jumlah stok yang tersedia sekarang
+  ErrorInfo error = 3;       // isi kalau ada error
+}
+
+message ReserveStockRequest {
+  string request_id = 1;       // correlation id
+  string order_id = 2;
+  string product_id = 3;
+  int32 quantity = 4;
+}
+
+message ReserveStockResponse {
+  bool success = 1;
+  string reservation_id = 2;   // UUID reservation
+  ErrorInfo error = 3;
+}
+
+message ReleaseStockRequest {
+  string request_id = 1;        // correlation id
+  string reservation_id = 2;   // id reservation yang mau dilepas
+}
+
+message ReleaseStockResponse {
+  bool success = 1;
+  ErrorInfo error = 2;
+}
+
+// Error Message
+message ErrorInfo {
+  string code = 1;       // OUT_OF_STOCK, RESERVATION_NOT_FOUND
+  string message = 2;    
+}
