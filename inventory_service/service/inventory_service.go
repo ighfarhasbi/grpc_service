@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"log"
 
 	"github.com/google/uuid"
@@ -65,15 +67,33 @@ func (s *InventoryService) ReserveStock(ctx context.Context, req *inventorypb.Re
 
 	resID := uuid.New().String()
 
-	// Kurangi stok (delta negatif)
-	if err := s.repo.UpdateStock(ctx, req.ProductId, -int(req.Quantity)); err != nil {
-		return nil, err
+	err = s.repo.WithTx(ctx, func(tx *sql.Tx) error {
+		// Kurangi stok
+		if err := s.repo.UpdateStock(ctx, tx, req.ProductId, -int(req.Quantity)); err != nil {
+			return err
+		}
+
+		// Buat reservasi
+		if err := s.repo.CreateReservation(ctx, tx, resID, req.OrderId, req.ProductId, int(req.Quantity)); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to reserve stock: %v", err)
 	}
 
-	// Buat reservasi
-	if err := s.repo.CreateReservation(ctx, resID, req.OrderId, req.ProductId, int(req.Quantity)); err != nil {
-		return nil, err
-	}
+	// // Kurangi stok (delta negatif)
+	// if err := s.repo.UpdateStock(ctx, req.ProductId, -int(req.Quantity)); err != nil {
+	// 	return nil, err
+	// }
+
+	// // Buat reservasi
+	// if err := s.repo.CreateReservation(ctx, resID, req.OrderId, req.ProductId, int(req.Quantity)); err != nil {
+	// 	return nil, err
+	// }
 
 	return &inventorypb.ReserveStockResponse{
 		Success:       true,
@@ -95,15 +115,32 @@ func (s *InventoryService) ReleaseStock(ctx context.Context, req *inventorypb.Re
 		}, nil
 	}
 
-	// Tambah stok kembali
-	if err := s.repo.UpdateStock(ctx, productID, qty); err != nil {
-		return nil, err
+	err = s.repo.WithTx(ctx, func(tx *sql.Tx) error {
+		// Tambah stok kembali
+		if err := s.repo.UpdateStock(ctx, tx, productID, qty); err != nil {
+			return err
+		}
+
+		// Update status jadi canceled
+		if err := s.repo.CancelReservation(ctx, tx, req.ReservationId); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to release stock: %v", err)
 	}
 
-	// Update status jadi canceled
-	if err := s.repo.CancelReservation(ctx, req.ReservationId); err != nil {
-		return nil, err
-	}
+	// // Tambah stok kembali
+	// if err := s.repo.UpdateStock(ctx, productID, qty); err != nil {
+	// 	return nil, err
+	// }
+
+	// // Update status jadi canceled
+	// if err := s.repo.CancelReservation(ctx, req.ReservationId); err != nil {
+	// 	return nil, err
+	// }
 
 	return &inventorypb.ReleaseStockResponse{
 		Success: true,
