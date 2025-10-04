@@ -47,7 +47,8 @@ services:
       dockerfile: Dockerfile
     container_name: inventory_service
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     env_file:
       - .env.docker
     ports:
