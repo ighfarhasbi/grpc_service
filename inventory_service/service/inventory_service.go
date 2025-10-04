@@ -1,0 +1,111 @@
+package service
+
+import (
+	"context"
+	"log"
+
+	"github.com/google/uuid"
+	"github.com/ighfarhasbi/grpc_service/inventory_service/db"
+	inventorypb "github.com/ighfarhasbi/grpc_service/proto/inventory"
+)
+
+type InventoryService struct {
+	inventorypb.UnimplementedInventoryServiceServer
+	repo db.InventoryRepository
+}
+
+func NewInventoryService(repo db.InventoryRepository) *InventoryService {
+	return &InventoryService{repo: repo}
+}
+
+func (s *InventoryService) CheckStock(ctx context.Context, req *inventorypb.CheckStockRequest) (*inventorypb.CheckStockResponse, error) {
+	log.Printf("Checking stock for product %s", req.ProductId)
+
+	stock, err := s.repo.GetStock(ctx, req.ProductId)
+	if err != nil {
+		return &inventorypb.CheckStockResponse{
+			Available: false,
+			Error: &inventorypb.ErrorInfo{
+				Code:    "PRODUCT_NOT_FOUND",
+				Message: "Product not found",
+			},
+		}, nil
+	}
+
+	available := stock >= int(req.Quantity)
+	return &inventorypb.CheckStockResponse{
+		Available:    available,
+		AvailableQty: int32(stock),
+	}, nil
+}
+
+func (s *InventoryService) ReserveStock(ctx context.Context, req *inventorypb.ReserveStockRequest) (*inventorypb.ReserveStockResponse, error) {
+	log.Printf("Reserving stock for order %s product %s", req.OrderId, req.ProductId)
+
+	stock, err := s.repo.GetStock(ctx, req.ProductId)
+	if err != nil {
+		return &inventorypb.ReserveStockResponse{
+			Success: false,
+			Error: &inventorypb.ErrorInfo{
+				Code:    "PRODUCT_NOT_FOUND",
+				Message: "Product not found",
+			},
+		}, nil
+	}
+
+	if stock < int(req.Quantity) {
+		return &inventorypb.ReserveStockResponse{
+			Success: false,
+			Error: &inventorypb.ErrorInfo{
+				Code:    "OUT_OF_STOCK",
+				Message: "Insufficient stock",
+			},
+		}, nil
+	}
+
+	resID := uuid.New().String()
+
+	// Kurangi stok (delta negatif)
+	if err := s.repo.UpdateStock(ctx, req.ProductId, -int(req.Quantity)); err != nil {
+		return nil, err
+	}
+
+	// Buat reservasi
+	if err := s.repo.CreateReservation(ctx, resID, req.OrderId, req.ProductId, int(req.Quantity)); err != nil {
+		return nil, err
+	}
+
+	return &inventorypb.ReserveStockResponse{
+		Success:       true,
+		ReservationId: resID,
+	}, nil
+}
+
+func (s *InventoryService) ReleaseStock(ctx context.Context, req *inventorypb.ReleaseStockRequest) (*inventorypb.ReleaseStockResponse, error) {
+	log.Printf("Releasing stock for reservation %s", req.ReservationId)
+
+	productID, qty, err := s.repo.GetReservation(ctx, req.ReservationId)
+	if err != nil {
+		return &inventorypb.ReleaseStockResponse{
+			Success: false,
+			Error: &inventorypb.ErrorInfo{
+				Code:    "RESERVATION_NOT_FOUND",
+				Message: "Reservation not found",
+			},
+		}, nil
+	}
+
+	// Tambah stok kembali
+	if err := s.repo.UpdateStock(ctx, productID, qty); err != nil {
+		return nil, err
+	}
+
+	// Update status jadi canceled
+	if err := s.repo.CancelReservation(ctx, req.ReservationId); err != nil {
+		return nil, err
+	}
+
+	return &inventorypb.ReleaseStockResponse{
+		Success: true,
+	}, nil
+}

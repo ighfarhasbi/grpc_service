@@ -1,0 +1,65 @@
+services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: inventory_migrate
+    entrypoint:
+      [
+        "migrate",
+        "-path",
+        "migrations/inventory",
+        "-database",
+        "postgres://ighfarhasbiash:Aa123aA@db:5432/inventory_db?sslmode=disable",
+        "up",
+      ]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: "no" # hanya jalan sekali
+
+  db:
+    image: postgres:15-alpine
+    container_name: inventory_db
+    environment:
+      - POSTGRES_USER=ighfarhasbiash
+      - POSTGRES_DB=inventory_db
+      - POSTGRES_PASSWORD=Aa123aA
+      # - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ighfarhasbiash -d inventory_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  inventory_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: inventory_service
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.docker
+    ports:
+      - "9090:9090"
+    networks:
+      - app-network
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+
+networks:
+  app-network:
+    name: app-network
