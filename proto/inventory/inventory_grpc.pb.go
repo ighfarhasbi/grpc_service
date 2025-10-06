@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	InventoryService_CheckStock_FullMethodName   = "/inventorys.InventoryService/CheckStock"
-	InventoryService_ReserveStock_FullMethodName = "/inventorys.InventoryService/ReserveStock"
-	InventoryService_ReleaseStock_FullMethodName = "/inventorys.InventoryService/ReleaseStock"
+	InventoryService_CheckStock_FullMethodName   = "/inventory.InventoryService/CheckStock"
+	InventoryService_ReserveStock_FullMethodName = "/inventory.InventoryService/ReserveStock"
+	InventoryService_ReleaseStock_FullMethodName = "/inventory.InventoryService/ReleaseStock"
+	InventoryService_GetProduct_FullMethodName   = "/inventory.InventoryService/GetProduct"
 )
 
 // InventoryServiceClient is the client API for InventoryService service.
@@ -36,6 +37,8 @@ type InventoryServiceClient interface {
 	ReserveStock(ctx context.Context, in *ReserveStockRequest, opts ...grpc.CallOption) (*ReserveStockResponse, error)
 	// Lepaskan stok yang sudah di-reserve (rollback jika order gagal)
 	ReleaseStock(ctx context.Context, in *ReleaseStockRequest, opts ...grpc.CallOption) (*ReleaseStockResponse, error)
+	// get product by id (untuk di call oleh order service, untuk mendapatkan harga produk)
+	GetProduct(ctx context.Context, in *GetProductRequest, opts ...grpc.CallOption) (*GetProductResponse, error)
 }
 
 type inventoryServiceClient struct {
@@ -76,6 +79,16 @@ func (c *inventoryServiceClient) ReleaseStock(ctx context.Context, in *ReleaseSt
 	return out, nil
 }
 
+func (c *inventoryServiceClient) GetProduct(ctx context.Context, in *GetProductRequest, opts ...grpc.CallOption) (*GetProductResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetProductResponse)
+	err := c.cc.Invoke(ctx, InventoryService_GetProduct_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InventoryServiceServer is the server API for InventoryService service.
 // All implementations must embed UnimplementedInventoryServiceServer
 // for forward compatibility.
@@ -88,6 +101,8 @@ type InventoryServiceServer interface {
 	ReserveStock(context.Context, *ReserveStockRequest) (*ReserveStockResponse, error)
 	// Lepaskan stok yang sudah di-reserve (rollback jika order gagal)
 	ReleaseStock(context.Context, *ReleaseStockRequest) (*ReleaseStockResponse, error)
+	// get product by id (untuk di call oleh order service, untuk mendapatkan harga produk)
+	GetProduct(context.Context, *GetProductRequest) (*GetProductResponse, error)
 	mustEmbedUnimplementedInventoryServiceServer()
 }
 
@@ -106,6 +121,9 @@ func (UnimplementedInventoryServiceServer) ReserveStock(context.Context, *Reserv
 }
 func (UnimplementedInventoryServiceServer) ReleaseStock(context.Context, *ReleaseStockRequest) (*ReleaseStockResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReleaseStock not implemented")
+}
+func (UnimplementedInventoryServiceServer) GetProduct(context.Context, *GetProductRequest) (*GetProductResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetProduct not implemented")
 }
 func (UnimplementedInventoryServiceServer) mustEmbedUnimplementedInventoryServiceServer() {}
 func (UnimplementedInventoryServiceServer) testEmbeddedByValue()                          {}
@@ -182,11 +200,29 @@ func _InventoryService_ReleaseStock_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InventoryService_GetProduct_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetProductRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventoryServiceServer).GetProduct(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventoryService_GetProduct_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventoryServiceServer).GetProduct(ctx, req.(*GetProductRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // InventoryService_ServiceDesc is the grpc.ServiceDesc for InventoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var InventoryService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "inventorys.InventoryService",
+	ServiceName: "inventory.InventoryService",
 	HandlerType: (*InventoryServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -200,6 +236,10 @@ var InventoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReleaseStock",
 			Handler:    _InventoryService_ReleaseStock_Handler,
+		},
+		{
+			MethodName: "GetProduct",
+			Handler:    _InventoryService_GetProduct_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

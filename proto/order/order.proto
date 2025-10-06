@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package order;
+
+option go_package = "github.com/ighfarhasbi/grpc_service/proto/order;orderpb";
+
+// Order Service
+service OrderService {
+    rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse) {}
+    rpc GetOrder(GetOrderRequest) returns (GetOrderResponse) {}
+    rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse) {}
+}
+
+message CreateOrderRequest {
+    string user_id = 1;               // UUID user yang membuat order
+    repeated OrderItem items = 2;     // daftar item dalam order
+}
+
+message OrderItem {
+    string product_id = 1;            // UUID produk
+    int32 quantity = 2;               // jumlah produk
+}
+
+message CreateOrderResponse {
+    string order_id = 1;              // UUID order yang dibuat
+    bool success = 2;                // STATUS_PENDING, STATUS_CONFIRMED, STATUS_CANCELLED
+    ErrorInfo error = 3;              // isi kalau ada error
+}
+
+message GetOrderRequest {
+    string order_id = 1;              // UUID order yang mau diambil
+}
+
+message GetOrderResponse {
+    string order_id = 1;
+    string user_id = 2;
+    repeated OrderItem items = 3;
+    string status = 4;                // STATUS_PENDING, STATUS_CONFIRMED, STATUS_CANCELLED
+    ErrorInfo error = 5;              // isi kalau ada error
+}
+
+message CancelOrderRequest {
+    string order_id = 1;              // UUID order yang mau dibatalkan
+}
+
+message CancelOrderResponse {
+    bool success = 1;                 // true kalau pembatalan berhasil
+    ErrorInfo error = 2;              // isi kalau ada error
+}
+
+// Error Message
+message ErrorInfo {
+    string code = 1;                  // ORDER_NOT_FOUND, INVALID_REQUEST
+    string message = 2;
+}

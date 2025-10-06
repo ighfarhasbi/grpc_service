@@ -51,6 +51,55 @@ func (_m *InventoryRepository) CreateReservation(ctx context.Context, tx *sql.Tx
 	return r0
 }
 
+// GetProduct provides a mock function with given fields: ctx, productID
+func (_m *InventoryRepository) GetProduct(ctx context.Context, productID string) (string, string, float64, int, error) {
+	ret := _m.Called(ctx, productID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetProduct")
+	}
+
+	var r0 string
+	var r1 string
+	var r2 float64
+	var r3 int
+	var r4 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (string, string, float64, int, error)); ok {
+		return rf(ctx, productID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
+		r0 = rf(ctx, productID)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) string); ok {
+		r1 = rf(ctx, productID)
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, string) float64); ok {
+		r2 = rf(ctx, productID)
+	} else {
+		r2 = ret.Get(2).(float64)
+	}
+
+	if rf, ok := ret.Get(3).(func(context.Context, string) int); ok {
+		r3 = rf(ctx, productID)
+	} else {
+		r3 = ret.Get(3).(int)
+	}
+
+	if rf, ok := ret.Get(4).(func(context.Context, string) error); ok {
+		r4 = rf(ctx, productID)
+	} else {
+		r4 = ret.Error(4)
+	}
+
+	return r0, r1, r2, r3, r4
+}
+
 // GetReservation provides a mock function with given fields: ctx, reservationID
 func (_m *InventoryRepository) GetReservation(ctx context.Context, reservationID string) (string, int, error) {
 	ret := _m.Called(ctx, reservationID)

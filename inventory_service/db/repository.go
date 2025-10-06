@@ -13,6 +13,7 @@ type InventoryRepository interface {
 	CreateReservation(ctx context.Context, tx *sql.Tx, reservationId, orderID, productID string, qty int) error
 	GetReservation(ctx context.Context, reservationID string) (string, int, error)
 	CancelReservation(ctx context.Context, tx *sql.Tx, reservationID string) error
+	GetProduct(ctx context.Context, productID string) (string, string, float64, int, error)
 }
 
 type inventoryRepo struct {
@@ -83,4 +84,17 @@ func (r *inventoryRepo) CancelReservation(ctx context.Context, tx *sql.Tx, reser
 		UPDATE reservations SET status='canceled' WHERE reservations_id=$1
 	`, reservationID)
 	return err
+}
+
+func (r *inventoryRepo) GetProduct(ctx context.Context, productID string) (string, string, float64, int, error) {
+	var sku, name string
+	var price float64
+	var stock int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT sku, name, price, stock FROM products WHERE products_id=$1
+	`, productID).Scan(&sku, &name, &price, &stock)
+	if err == sql.ErrNoRows {
+		return "", "", 0, 0, errors.New("product not found")
+	}
+	return sku, name, price, stock, err
 }
