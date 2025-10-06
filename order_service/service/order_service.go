@@ -30,7 +30,19 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *orderpb.CreateOrder
 	var totalAmount float64
 
 	err := s.repo.WithTx(ctx, func(tx *sql.Tx) error {
-		// Buat record order (setelah totalAmount diketahui)
+		//  hitung total amount
+		for _, item := range req.Items {
+			productResp, err := s.invClient.GetProduct(ctx, &inventorypb.GetProductRequest{
+				ProductId: item.ProductId,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to call GetProduct for product_id=%s: %w", item.ProductId, err)
+			}
+			if productResp.Error != nil {
+				return fmt.Errorf("inventory error: %s", productResp.Error.Message)
+			}
+			totalAmount += productResp.Price * float64(item.Quantity)
+		}
 		if err := s.repo.CreateOrder(ctx, tx, orderID, req.UserId, totalAmount, "pending"); err != nil {
 			return fmt.Errorf("failed to create order: %w", err)
 		}
@@ -47,7 +59,6 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *orderpb.CreateOrder
 			}
 
 			unitPrice := productResp.Price
-			totalAmount += unitPrice * float64(item.Quantity)
 
 			orderItemID := uuid.NewString()
 
@@ -67,8 +78,8 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *orderpb.CreateOrder
 			}
 		}
 
-		// Update status jadi confirmed
-		if err := s.repo.UpdateOrderStatus(ctx, tx, orderID, "confirmed"); err != nil {
+		// Update status jadi reserved (untuk sekarang tetap pending, karena enum status hanya pending, confirmed, canceled)
+		if err := s.repo.UpdateOrderStatus(ctx, tx, orderID, "pending"); err != nil {
 			return fmt.Errorf("failed to update status: %w", err)
 		}
 
@@ -114,7 +125,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *orderpb.CancelOrder
 		}, nil
 	}
 
-	// 🔹 1. Loop semua item dan release stok di inventory
+	// Loop semua item dan release stok di inventory
 	for _, item := range items {
 		resp, err := s.invClient.ReleaseStock(ctx, &inventorypb.ReleaseStockRequest{
 			ReservationId: req.OrderId,
@@ -139,7 +150,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *orderpb.CancelOrder
 		}
 	}
 
-	// 🔹 2. Update status order di database
+	// Update status order di database
 	err = s.repo.WithTx(ctx, func(tx *sql.Tx) error {
 		return s.repo.UpdateOrderStatus(ctx, tx, req.OrderId, "canceled")
 	})

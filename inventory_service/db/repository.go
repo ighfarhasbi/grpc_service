@@ -12,7 +12,7 @@ type InventoryRepository interface {
 	UpdateStock(ctx context.Context, tx *sql.Tx, productID string, delta int) error
 	CreateReservation(ctx context.Context, tx *sql.Tx, reservationId, orderID, productID string, qty int) error
 	GetReservation(ctx context.Context, reservationID string) (string, int, error)
-	CancelReservation(ctx context.Context, tx *sql.Tx, reservationID string) error
+	CancelReservation(ctx context.Context, tx *sql.Tx, orderID string) error
 	GetProduct(ctx context.Context, productID string) (string, string, float64, int, error)
 }
 
@@ -67,22 +67,23 @@ func (r *inventoryRepo) CreateReservation(ctx context.Context, tx *sql.Tx, reser
 	return err
 }
 
-func (r *inventoryRepo) GetReservation(ctx context.Context, reservationID string) (string, int, error) {
+// sebenarnya get reservation by orderID
+func (r *inventoryRepo) GetReservation(ctx context.Context, orderID string) (string, int, error) {
 	var productID string
 	var qty int
 	err := r.db.QueryRowContext(ctx, `
-		SELECT products_id, qty FROM reservations WHERE reservations_id=$1 AND status='reserved'
-	`, reservationID).Scan(&productID, &qty)
+		SELECT products_id, qty FROM reservations WHERE orders_id=$1 AND status='reserved'
+	`, orderID).Scan(&productID, &qty)
 	if err == sql.ErrNoRows {
 		return "", 0, errors.New("reservation not found")
 	}
 	return productID, qty, err
 }
 
-func (r *inventoryRepo) CancelReservation(ctx context.Context, tx *sql.Tx, reservationID string) error {
+func (r *inventoryRepo) CancelReservation(ctx context.Context, tx *sql.Tx, orderID string) error {
 	_, err := tx.ExecContext(ctx, `
-		UPDATE reservations SET status='canceled' WHERE reservations_id=$1
-	`, reservationID)
+		UPDATE reservations SET status='canceled' WHERE orders_id=$1 AND status='reserved'
+	`, orderID)
 	return err
 }
 

@@ -92,7 +92,7 @@ func (s *InventoryService) ReserveStock(ctx context.Context, req *inventorypb.Re
 }
 
 func (s *InventoryService) ReleaseStock(ctx context.Context, req *inventorypb.ReleaseStockRequest) (*inventorypb.ReleaseStockResponse, error) {
-	log.Printf("Releasing stock for reservation %s", req.ReservationId)
+	// log.Printf("Releasing stock for reservation %s", req.ReservationId)
 
 	productID, qty, err := s.repo.GetReservation(ctx, req.ReservationId)
 	if err != nil {
