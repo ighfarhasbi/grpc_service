@@ -7,11 +7,13 @@ import (
 )
 
 type InventoryRepository interface {
+	WithTx(ctx context.Context, fn func(tx *sql.Tx) error) error
 	GetStock(ctx context.Context, productID string) (int, error)
-	UpdateStock(ctx context.Context, productID string, delta int) error
-	CreateReservation(ctx context.Context, reservationId, orderID, productID string, qty int) error
+	UpdateStock(ctx context.Context, tx *sql.Tx, productID string, delta int) error
+	CreateReservation(ctx context.Context, tx *sql.Tx, reservationId, orderID, productID string, qty int) error
 	GetReservation(ctx context.Context, reservationID string) (string, int, error)
-	CancelReservation(ctx context.Context, reservationID string) error
+	CancelReservation(ctx context.Context, tx *sql.Tx, reservationID string) error
+	GetProduct(ctx context.Context, productID string) (string, string, float64, int, error)
 }
 
 type inventoryRepo struct {
@@ -20,6 +22,27 @@ type inventoryRepo struct {
 
 func NewInventoryRepository(db *sql.DB) InventoryRepository {
 	return &inventoryRepo{db: db}
+}
+
+func (r *inventoryRepo) WithTx(ctx context.Context, fn func(tx *sql.Tx) error) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		}
+	}()
+
+	if err := fn(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r *inventoryRepo) GetStock(ctx context.Context, productID string) (int, error) {
@@ -31,14 +54,14 @@ func (r *inventoryRepo) GetStock(ctx context.Context, productID string) (int, er
 	return stock, err
 }
 
-func (r *inventoryRepo) UpdateStock(ctx context.Context, productID string, delta int) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE products SET stock = stock + $1 WHERE products_id = $2`, delta, productID)
+func (r *inventoryRepo) UpdateStock(ctx context.Context, tx *sql.Tx, productID string, delta int) error {
+	_, err := tx.ExecContext(ctx, `UPDATE products SET stock = stock + $1 WHERE products_id = $2`, delta, productID)
 	return err
 }
 
-func (r *inventoryRepo) CreateReservation(ctx context.Context, reservationId, orderID, productID string, qty int) error {
-	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO reservations (reservations_id, product_id, order_id, qty, status)
+func (r *inventoryRepo) CreateReservation(ctx context.Context, tx *sql.Tx, reservationId, orderID, productID string, qty int) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO reservations (reservations_id, products_id, orders_id, qty, status)
 		VALUES ($1, $2, $3, $4, 'reserved')
 	`, reservationId, productID, orderID, qty)
 	return err
@@ -48,7 +71,7 @@ func (r *inventoryRepo) GetReservation(ctx context.Context, reservationID string
 	var productID string
 	var qty int
 	err := r.db.QueryRowContext(ctx, `
-		SELECT product_id, qty FROM reservations WHERE reservations_id=$1 AND status='reserved'
+		SELECT products_id, qty FROM reservations WHERE reservations_id=$1 AND status='reserved'
 	`, reservationID).Scan(&productID, &qty)
 	if err == sql.ErrNoRows {
 		return "", 0, errors.New("reservation not found")
@@ -56,9 +79,22 @@ func (r *inventoryRepo) GetReservation(ctx context.Context, reservationID string
 	return productID, qty, err
 }
 
-func (r *inventoryRepo) CancelReservation(ctx context.Context, reservationID string) error {
-	_, err := r.db.ExecContext(ctx, `
+func (r *inventoryRepo) CancelReservation(ctx context.Context, tx *sql.Tx, reservationID string) error {
+	_, err := tx.ExecContext(ctx, `
 		UPDATE reservations SET status='canceled' WHERE reservations_id=$1
 	`, reservationID)
 	return err
+}
+
+func (r *inventoryRepo) GetProduct(ctx context.Context, productID string) (string, string, float64, int, error) {
+	var sku, name string
+	var price float64
+	var stock int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT sku, name, price, stock FROM products WHERE products_id=$1
+	`, productID).Scan(&sku, &name, &price, &stock)
+	if err == sql.ErrNoRows {
+		return "", "", 0, 0, errors.New("product not found")
+	}
+	return sku, name, price, stock, err
 }

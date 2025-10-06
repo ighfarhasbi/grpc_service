@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package inventorys;
+package inventory;
 
 option go_package = "github.com/ighfarhasbi/grpc_service/proto/inventory;inventorypb";
 
@@ -12,11 +12,12 @@ service InventoryService {
   rpc ReserveStock(ReserveStockRequest) returns (ReserveStockResponse) {}
   // Lepaskan stok yang sudah di-reserve (rollback jika order gagal)
   rpc ReleaseStock(ReleaseStockRequest) returns (ReleaseStockResponse) {}
+  // get product by id (untuk di call oleh order service, untuk mendapatkan harga produk)
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse) {}
 }
 
 // Message Definitions
 message CheckStockRequest {
-  string request_id = 1;     // correlation id untuk tracing/logging
   string product_id = 2;     // UUID produk
   int32 quantity = 3;        // qty yang diminta
 }
@@ -28,7 +29,6 @@ message CheckStockResponse {
 }
 
 message ReserveStockRequest {
-  string request_id = 1;       // correlation id
   string order_id = 2;
   string product_id = 3;
   int32 quantity = 4;
@@ -41,13 +41,25 @@ message ReserveStockResponse {
 }
 
 message ReleaseStockRequest {
-  string request_id = 1;        // correlation id
   string reservation_id = 2;   // id reservation yang mau dilepas
 }
 
 message ReleaseStockResponse {
   bool success = 1;
   ErrorInfo error = 2;
+}
+
+message GetProductRequest {
+  string product_id = 1;       // UUID produk
+}
+
+message GetProductResponse {
+  string product_id = 1;
+  string sku = 2;
+  string name = 3;
+  double price = 4;
+  int32 stock = 5;
+  ErrorInfo error = 6;
 }
 
 // Error Message

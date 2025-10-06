@@ -1,0 +1,40 @@
+# Stage 1: Build
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+RUN apk add --no-cache curl git
+
+# Install swag CLI
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+
+# Copy dependency
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source
+COPY . .
+
+# Generate swagger docs (docs/ folder)
+RUN /go/bin/swag init -g client/main.go
+
+# Build binary untuk order_service
+RUN go build -ldflags="-s -w" -o main ./order_service
+
+# Install migrate CLI
+RUN curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-amd64.tar.gz \
+    | tar -xz && mv migrate /usr/local/bin/migrate
+
+# Stage 2: Run
+FROM alpine:3.21
+
+WORKDIR /app
+
+COPY --from=builder /app/main .
+COPY --from=builder /usr/local/bin/migrate /usr/local/bin/migrate
+COPY migrations ./migrations
+
+# Copy swagger docs (hasil swag init)
+COPY --from=builder /app/docs ./docs
+
+EXPOSE 9091
+CMD ["./main"]

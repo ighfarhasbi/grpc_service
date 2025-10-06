@@ -3,16 +3,25 @@ package main
 import (
 	"log"
 	"net"
+	"os"
 
 	"github.com/ighfarhasbi/grpc_service/inventory_service/config"
 	"github.com/ighfarhasbi/grpc_service/inventory_service/db"
 	"github.com/ighfarhasbi/grpc_service/inventory_service/service"
 	inventorypb "github.com/ighfarhasbi/grpc_service/proto/inventory"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"google.golang.org/grpc"
 )
 
 func main() {
+	if os.Getenv("APP_ENV") == "local" {
+		err := godotenv.Load(".env")
+		if err != nil {
+			log.Fatalf("Error loading .env: %v", err)
+		}
+	}
+
 	// load config
 	cfg := config.New()
 
