@@ -29,7 +29,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *orderpb.CreateOrder
 	orderID := uuid.New().String()
 	var totalAmount float64
 
-	err := s.repo.WithTx(ctx, func(tx *sql.Tx) error {
+	err_get := s.repo.WithTx(ctx, func(tx *sql.Tx) error {
 		//  hitung total amount
 		for _, item := range req.Items {
 			productResp, err := s.invClient.GetProduct(ctx, &inventorypb.GetProductRequest{
@@ -86,12 +86,28 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *orderpb.CreateOrder
 		return nil
 	})
 
-	if err != nil {
+	if err_get != nil {
+		// Rollback reservation di inventory
+		var resp *inventorypb.ReleaseStockResponse
+		var err error
+		for range req.Items {
+			resp, err = s.invClient.ReleaseStock(ctx, &inventorypb.ReleaseStockRequest{
+				ReservationId: orderID,
+			})
+		}
+		if err != nil {
+			// log error, tapi tetap return error utama
+			fmt.Printf("failed to rollback reservation for order %s: %v\n", orderID, err)
+		}
+		if resp.Error != nil {
+			fmt.Printf("inventory error during rollback for order %s: %s\n", orderID, resp.Error.Message)
+		}
+
 		return &orderpb.CreateOrderResponse{
 			Success: false,
 			Error: &orderpb.ErrorInfo{
 				Code:    "CREATE_FAILED",
-				Message: err.Error(),
+				Message: err_get.Error(),
 			},
 		}, nil
 	}
