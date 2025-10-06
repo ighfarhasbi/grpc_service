@@ -79,7 +79,8 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *orderpb.CreateOrder
 		}
 
 		// Update status jadi reserved (untuk sekarang tetap pending, karena enum status hanya pending, confirmed, canceled)
-		if err := s.repo.UpdateOrderStatus(ctx, tx, orderID, "pending"); err != nil {
+		// bisa juga kasusnya langsung confirmed kalau misal pakai payment gateway
+		if err := s.repo.UpdateOrderStatus(ctx, tx, orderID, "confirmed"); err != nil {
 			return fmt.Errorf("failed to update status: %w", err)
 		}
 
@@ -87,7 +88,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *orderpb.CreateOrder
 	})
 
 	if err_get != nil {
-		// Rollback reservation di inventory
+		// Rollback reservation di inventory karena ada error saat create order/item
 		var resp *inventorypb.ReleaseStockResponse
 		var err error
 		for range req.Items {
@@ -111,6 +112,9 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *orderpb.CreateOrder
 			},
 		}, nil
 	}
+
+	// Jika sudah ada checkout service, di sini bisa langsung panggil checkout service
+	// untuk update status reserved -> confirmed
 
 	return &orderpb.CreateOrderResponse{
 		OrderId: orderID,
