@@ -19,8 +19,6 @@ bin/
 
 # Go modules & cache
 vendor/
-*.mod
-*.sum
 *.lock
 
 # Coverage files
