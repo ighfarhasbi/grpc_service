@@ -1,0 +1,29 @@
+# Stage 1: build
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+
+RUN apk add --no-cache git
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# Generate swagger docs
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+RUN /go/bin/swag init -g client/main.go
+
+# Build REST client
+RUN go build -ldflags="-s -w" -o main ./client
+
+# Stage 2: runtime
+FROM alpine:3.21
+
+WORKDIR /app
+COPY --from=builder /app/main .
+COPY --from=builder /app/docs ./docs
+
+EXPOSE 8083
+
+CMD ["./main"]

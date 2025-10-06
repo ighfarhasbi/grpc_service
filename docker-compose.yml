@@ -115,6 +115,22 @@ services:
       - app-network
     restart: unless-stopped
 
+  client:
+    build:
+      context: .
+      dockerfile: dockerfile.client
+    container_name: order_client
+    depends_on:
+      order_service:
+        condition: service_started
+    env_file:
+      - .env.client
+    ports:
+      - "8083:8083"
+    networks:
+      - app-network
+    restart: unless-stopped
+
 volumes:
   pgdata_inventory:
   pgdata_order:
@@ -122,127 +138,3 @@ volumes:
 networks:
   app-network:
     name: app-network
-# services:
-#   migrate:
-#     build:
-#       context: .
-#       dockerfile: Dockerfile.inventory
-#     container_name: inventory_migrate
-#     entrypoint:
-#       [
-#         "migrate",
-#         "-path",
-#         "migrations/inventory",
-#         "-database",
-#         "postgres://ighfarhasbiash:Aa123aA@db:5432/inventory_db?sslmode=disable",
-#         "up",
-#       ]
-#     depends_on:
-#       db:
-#         condition: service_healthy
-#     networks:
-#       - app-network
-#     restart: "no" # hanya jalan sekali
-
-#   db:
-#     image: postgres:15-alpine
-#     container_name: inventory_db
-#     environment:
-#       - POSTGRES_USER=ighfarhasbiash
-#       - POSTGRES_DB=inventory_db
-#       - POSTGRES_PASSWORD=Aa123aA
-#       # - POSTGRES_HOST_AUTH_METHOD=trust
-#     volumes:
-#       - pgdata_inventory:/var/lib/postgresql/data
-#     ports:
-#       - "5433:5432"
-#     networks:
-#       - app-network
-#     restart: unless-stopped
-#     healthcheck:
-#       test: ["CMD-SHELL", "pg_isready -U ighfarhasbiash -d inventory_db"]
-#       interval: 5s
-#       timeout: 3s
-#       retries: 5
-
-#   inventory_service:
-#     build:
-#       context: .
-#       dockerfile: Dockerfile.inventory
-#     container_name: inventory_service
-#     depends_on:
-#       db:
-#         condition: service_healthy
-#     env_file:
-#       - .env.docker
-#     ports:
-#       - "9090:9090"
-#     networks:
-#       - app-network
-#     restart: unless-stopped
-
-#   order_migrate:
-#     build:
-#       context: .
-#       dockerfile: Dockerfile.order
-#     container_name: order_migrate
-#     entrypoint:
-#       [
-#         "migrate",
-#         "-path",
-#         "migrations/order",
-#         "-database",
-#         "postgres://ighfarhasbiash:Aa123aA@db_order:5432/order_db?sslmode=disable",
-#         "up",
-#       ]
-#     depends_on:
-#       db_order:
-#         condition: service_healthy
-#     networks:
-#       - app-network
-#     restart: "no" # hanya jalan sekali
-
-#   db_order:
-#     image: postgres:15-alpine
-#     container_name: order_db
-#     environment:
-#       - POSTGRES_USER=ighfarhasbiash
-#       - POSTGRES_DB=order_db
-#       - POSTGRES_PASSWORD=Aa123aA
-#       # - POSTGRES_HOST_AUTH_METHOD=trust
-#     volumes:
-#       - pgdata_order:/var/lib/postgresql/data
-#     ports:
-#       - "5434:5432"
-#     networks:
-#       - app-network
-#     restart: unless-stopped
-#     healthcheck:
-#       test: ["CMD-SHELL", "pg_isready -U ighfarhasbiash -d order_db"]
-#       interval: 5s
-#       timeout: 3s
-#       retries: 5
-
-#   order_service:
-#     build:
-#       context: .
-#       dockerfile: Dockerfile.order
-#     container_name: order_service
-#     depends_on:
-#       db_order:
-#         condition: service_healthy
-#     env_file:
-#       - .env.docker
-#     ports:
-#       - "9091:9091"
-#     networks:
-#       - app-network
-#     restart: unless-stopped
-
-# volumes:
-#   pgdata_inventory:
-#   pgdata_order:
-
-# networks:
-#   app-network:
-#     name: app-network

@@ -13,7 +13,7 @@ package main
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 // @schemes http
 
-// @host localhost:8082
+// @host 172.16.148.101:8083
 // @BasePath /
 // securityDefinitions.apikey BearerAuth
 // @in header
@@ -23,9 +23,11 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 
 	_ "github.com/ighfarhasbi/grpc_service/docs"
 	orderpb "github.com/ighfarhasbi/grpc_service/proto/order"
+	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"google.golang.org/grpc"
@@ -33,7 +35,16 @@ import (
 )
 
 func main() {
-	conn, err := grpc.NewClient("localhost:9091", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	var port string
+	if os.Getenv("APP_ENV") == "local" {
+		err := godotenv.Load(".env.client")
+		if err != nil {
+			log.Fatalf("Error loading .env: %v", err)
+		}
+		port = os.Getenv("Client_PORT")
+	}
+
+	conn, err := grpc.NewClient("order_service:9091", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("client connection error: %v", err)
 	}
@@ -41,28 +52,22 @@ func main() {
 
 	clientConn := orderpb.NewOrderServiceClient(conn)
 
-	resp, err := clientConn.CancelOrder(context.Background(), &orderpb.CancelOrderRequest{OrderId: "fd2d7478-acbd-4622-9fed-04f3e896c1e7"})
-
-	if err != nil {
-		log.Fatalf("client request error: %v", err)
-	}
-	log.Printf("client response: %v", resp)
-
 	e := echo.New()
 
 	// Define routes for swagger
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
-	e.GET("/", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{
-			"message": "Hello, World!",
-		})
-	})
 	e.POST("/order", func(c echo.Context) error {
 		return CreateOrder(c, clientConn)
 	})
+	e.POST("/cancel", func(c echo.Context) error {
+		return CancelOrder(c, clientConn)
+	})
 
-	e.Logger.Fatal(e.Start(":8082"))
+	// get port from env
+	port = os.Getenv("Client_PORT")
+
+	e.Logger.Fatal(e.Start(":" + port))
 }
 
 // @Summary Create a new order
