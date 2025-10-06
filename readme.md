@@ -105,7 +105,15 @@
 7. jika butuh id product, sudah ada di data seed folder `migrations/inventory/0002_seed_products.up.sql`
 8. untuk user_id (harus uuid), masih random uuid karena belum ada hubungan ke user service. Bisa generate di `https://www.uuidgenerator.net/`
 
+### Docker Images
+| Service | Image |
+|----------|--------|
+| Inventory Service | `ighfarhasbi/grpc_service:inventory` |
+| Order Service | `ighfarhasbi/grpc_service:order` |
+
+
 
 <div>
   <img style="width: 100%" src="https://capsule-render.vercel.app/api?type=waving&height=80&section=footer&reversal=false&fontSize=70&fontColor=FFFFFF&fontAlign=50&fontAlignY=50&stroke=-&descSize=20&descAlign=50&descAlignY=50&color=gradient" />
 </div>
+
