@@ -76,8 +76,8 @@ func (r *orderRepo) CreateOrderItem(ctx context.Context, tx *sql.Tx, orderItemID
 func (r *orderRepo) UpdateOrderStatus(ctx context.Context, tx *sql.Tx, orderID, status string) error {
 	query := `
 		UPDATE orders 
-		SET status = $1, updated_at = now()
-		WHERE orders_id = $2
+		SET status = $1
+		WHERE orders_id = $2 AND status != 'confirmed'
 	`
 	_, err := tx.ExecContext(ctx, query, status, orderID)
 	return err
