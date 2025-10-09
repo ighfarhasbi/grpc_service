@@ -55,6 +55,24 @@ func TestCheckStock_ProductNotFound(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
+func TestCheckStock_InsufficientStock(t *testing.T) {
+	ctx := context.Background()
+	mockRepo := new(mocks.InventoryRepository)
+
+	mockRepo.On("GetStock", ctx, "prod3").Return(2, nil)
+
+	svc := service.NewInventoryService(mockRepo)
+
+	resp, err := svc.CheckStock(ctx, &inventorypb.CheckStockRequest{
+		ProductId: "prod3",
+		Quantity:  3,
+	})
+	assert.NoError(t, err)
+	assert.False(t, resp.GetAvailable())
+
+	mockRepo.AssertExpectations(t)
+}
+
 func TestReserveStock_Success(t *testing.T) {
 	ctx := context.Background()
 	mockRepo := new(mocks.InventoryRepository)

@@ -32,6 +32,22 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *orderpb.CreateOrder
 	err_get := s.repo.WithTx(ctx, func(tx *sql.Tx) error {
 		//  hitung total amount
 		for _, item := range req.Items {
+			// check stock di inventory
+			checkResp, err := s.invClient.CheckStock(ctx, &inventorypb.CheckStockRequest{
+				ProductId: item.ProductId,
+				Quantity:  int32(item.Quantity),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to call CheckStock for product_id=%s: %w", item.ProductId, err)
+			}
+			if checkResp.Error != nil {
+				return fmt.Errorf("inventory error: %s", checkResp.Error.Message)
+			}
+			if !checkResp.GetAvailable() {
+				return fmt.Errorf("insufficient stock for product_id=%s", item.ProductId)
+			}
+
+			// get product dari inventory
 			productResp, err := s.invClient.GetProduct(ctx, &inventorypb.GetProductRequest{
 				ProductId: item.ProductId,
 			})
@@ -80,6 +96,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *orderpb.CreateOrder
 
 		// Update status jadi reserved (untuk sekarang tetap pending, karena enum status hanya pending, confirmed, canceled)
 		// bisa juga kasusnya langsung confirmed kalau misal pakai payment gateway
+		// payment (jika ada) call disini
 		if err := s.repo.UpdateOrderStatus(ctx, tx, orderID, "confirmed"); err != nil {
 			return fmt.Errorf("failed to update status: %w", err)
 		}
